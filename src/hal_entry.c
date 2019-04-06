@@ -22,6 +22,9 @@
 ***********************************************************************************************************************/
 
 #include "hal_data.h"
+const bsp_delay_units_t bsp_delay_units = BSP_DELAY_UNITS_MILLISECONDS;
+uint32_t flag1=0;
+uint32_t flag2=0;
 
 /*******************************************************************************************************************//**
  * @brief  Blinky example application
@@ -32,45 +35,115 @@
  **********************************************************************************************************************/
 void hal_entry(void) {
 
-	/* Define the units to be used with the software delay function */
-	const bsp_delay_units_t bsp_delay_units = BSP_DELAY_UNITS_MILLISECONDS;
-	/* Set the blink frequency (must be <= bsp_delay_units */
-    const uint32_t freq_in_hz = 2;
-	/* Calculate the delay in terms of bsp_delay_units */
-    const uint32_t delay = bsp_delay_units/freq_in_hz;
-	/* LED type structure */
-    bsp_leds_t leds;
-	/* LED state variable */
-    ioport_level_t level = IOPORT_LEVEL_HIGH;
 
-    /* Get LED information for this board */
-    R_BSP_LedsGet(&leds);
+    // Interrupts
+    g_external_irq10.p_api->open(g_external_irq10.p_ctrl,g_external_irq10.p_cfg);
+    g_external_irq11.p_api->open(g_external_irq11.p_ctrl,g_external_irq11.p_cfg);
 
-    /* If this board has no LEDs then trap here */
-    if (0 == leds.led_count)
-    {
-        while(1);   // There are no LEDs on this board
-    }
+    // Esatdo inicial en 0
+    g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_00, IOPORT_LEVEL_HIGH);  //l1
+    g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_01, IOPORT_LEVEL_HIGH);  //l2
+    g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_02, IOPORT_LEVEL_HIGH);  //l3
 
     while(1)
     {
-        /* Determine the next state of the LEDs */
-        if(IOPORT_LEVEL_LOW == level)
-        {
-            level = IOPORT_LEVEL_HIGH;
-        }
-        else
-        {
-            level = IOPORT_LEVEL_LOW;
-        }
-
-        /* Update all board LEDs */
-        for(uint32_t i = 0; i < leds.led_count; i++)
-        {
-            g_ioport.p_api->pinWrite(leds.p_leds[i], level);
-        }
-
-        /* Delay */
-        R_BSP_SoftwareDelay(delay, bsp_delay_units);
+        //Secuancia_normal (encendido el verde)
+        g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_00, IOPORT_LEVEL_LOW);  //l1 (verde)
+        g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_01, IOPORT_LEVEL_HIGH);  //l2 (rojo)
+        g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_02, IOPORT_LEVEL_HIGH);  //l3 (amarillo)
+        flag1=0;
+        flag2=0;
     }
 }
+
+// PEATON
+void button_callback_SW4(external_irq_callback_args_t *p_args)
+{
+   flag1=1;  // El peaton presiono el boton
+      if(flag2==0)
+      {
+           // PARPADEA EL VERDE
+           g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_00, IOPORT_LEVEL_LOW);  //l1 (verde)
+           R_BSP_SoftwareDelay(200, bsp_delay_units);/* Delay */
+           g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_00, IOPORT_LEVEL_HIGH);  //l1 (verde)
+           R_BSP_SoftwareDelay(200, bsp_delay_units);/* Delay */
+           g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_00, IOPORT_LEVEL_LOW);  //l1 (verde)
+           R_BSP_SoftwareDelay(200, bsp_delay_units);/* Delay */
+           g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_00, IOPORT_LEVEL_HIGH);  //l1 (verde)
+           R_BSP_SoftwareDelay(200, bsp_delay_units);/* Delay */
+           g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_00, IOPORT_LEVEL_LOW);  //l1 (verde)
+           R_BSP_SoftwareDelay(200, bsp_delay_units);/* Delay */
+           g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_00, IOPORT_LEVEL_HIGH);  //l1 (verde)
+           R_BSP_SoftwareDelay(200, bsp_delay_units);/* Delay */
+           g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_00, IOPORT_LEVEL_LOW);  //l1 (verde)
+           R_BSP_SoftwareDelay(200, bsp_delay_units);/* Delay */
+           g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_00, IOPORT_LEVEL_HIGH);  //l1 (verde)
+
+
+           // ENCIENDE AMARILLO
+           g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_02, IOPORT_LEVEL_LOW);  //l3 (amarillo)
+           R_BSP_SoftwareDelay(1500, bsp_delay_units);
+           g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_02, IOPORT_LEVEL_HIGH);  //l3 (amarillo)/
+
+           // ENCIENDE ROJO --> El peaton tiene 4 segundos para pasar.
+           g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_01, IOPORT_LEVEL_LOW);  //l2 (rojo)
+           R_BSP_SoftwareDelay(4000, bsp_delay_units);
+
+           // PLUS (Avisar que ya encnederá nuevamente a verde, por lo que enciende el amariillo)
+           g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_02, IOPORT_LEVEL_LOW);  //l3 (amarillo)
+           R_BSP_SoftwareDelay(1000, bsp_delay_units);  // Avisa que encenerá el verde
+
+           // APAGA Amarillo y Rojo, para continuar la secuencia normal
+           g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_01, IOPORT_LEVEL_HIGH);  //l2 (rojo)
+           g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_02, IOPORT_LEVEL_HIGH);  //l3 (amarillo)
+
+      }
+}
+
+// AUTOMOVIL
+void button_callback_SW5(external_irq_callback_args_t *p_args)
+{
+    flag2=1;  // Paso un automovil
+
+          if(flag1==0)
+          {
+              // PARPADEA EL VERDE
+              g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_00, IOPORT_LEVEL_LOW);  //l1 (verde)
+              R_BSP_SoftwareDelay(200, bsp_delay_units);/* Delay */
+              g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_00, IOPORT_LEVEL_HIGH);  //l1 (verde)
+              R_BSP_SoftwareDelay(200, bsp_delay_units);/* Delay */
+              g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_00, IOPORT_LEVEL_LOW);  //l1 (verde)
+              R_BSP_SoftwareDelay(200, bsp_delay_units);/* Delay */
+              g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_00, IOPORT_LEVEL_HIGH);  //l1 (verde)
+              R_BSP_SoftwareDelay(200, bsp_delay_units);/* Delay */
+              g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_00, IOPORT_LEVEL_LOW);  //l1 (verde)
+              R_BSP_SoftwareDelay(200, bsp_delay_units);/* Delay */
+              g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_00, IOPORT_LEVEL_HIGH);  //l1 (verde)
+              R_BSP_SoftwareDelay(200, bsp_delay_units);/* Delay */
+              g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_00, IOPORT_LEVEL_LOW);  //l1 (verde)
+              R_BSP_SoftwareDelay(200, bsp_delay_units);/* Delay */
+              g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_00, IOPORT_LEVEL_HIGH);  //l1 (verde)
+
+
+              // ENCIENDE AMARILLO
+              g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_02, IOPORT_LEVEL_LOW);  //l3 (amarillo)
+              R_BSP_SoftwareDelay(1500, bsp_delay_units);
+              g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_02, IOPORT_LEVEL_HIGH);  //l3 (amarillo)/
+
+              // ENCIENDE ROJO --> El auto tiene 2 segundos para pasar.
+              g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_01, IOPORT_LEVEL_LOW);  //l2 (rojo)
+              R_BSP_SoftwareDelay(2000, bsp_delay_units);
+
+              // PLUS (Avisar que ya encnederá nuevamente a verde, por lo que enciende el amariillo)
+              g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_02, IOPORT_LEVEL_LOW);  //l3 (amarillo)
+              R_BSP_SoftwareDelay(1000, bsp_delay_units);  // Avisa que encenerá el verde
+
+              // APAGA Amarillo y Rojo, para continuar la secuencia normal
+              g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_01, IOPORT_LEVEL_HIGH);  //l2 (rojo)
+              g_ioport.p_api->pinWrite(IOPORT_PORT_06_PIN_02, IOPORT_LEVEL_HIGH);  //l3 (amarillo)
+
+
+          }
+
+}
+
